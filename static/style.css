@@ -1,0 +1,115 @@
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f4f4f4;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+
+.container {
+    background-color: white;
+    padding: 2em;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    border-radius: 10px;
+    width: 100%;
+    max-width: 1600px; /* Increase max-width to fit 6 boxes per row */
+    text-align: center;
+}
+
+h1 {
+    color: #4CAF50;
+    margin-bottom: 1em;
+}
+
+input[type="text"] {
+    width: 80%;
+    padding: 10px;
+    margin: 1em 0;
+    font-size: 1.1em;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    transition: all 0.3s ease;
+}
+
+input[type="text"]:focus {
+    outline: none;
+    border-color: #4CAF50;
+    box-shadow: 0 0 5px rgba(76, 175, 80, 0.5);
+}
+
+ul {
+    list-style-type: none;
+    padding: 0;
+    max-height: 200px;
+    overflow-y: auto;
+    margin: 0;
+}
+
+ul li {
+    padding: 8px;
+    background-color: #f1f1f1;
+    margin: 4px 0;
+    cursor: pointer;
+    border-radius: 5px;
+    transition: background-color 0.3s ease;
+}
+
+ul li:hover {
+    background-color: #ddd;
+}
+
+#studentDetails {
+    margin-top: 2em;
+    padding: 1em;
+    background-color: #f1f1f1;
+    border-radius: 5px;
+    display: none;
+    text-align: left;
+}
+
+h2 {
+    color: #333;
+    margin-bottom: 1em;
+}
+
+#details {
+    display: flex;
+    flex-wrap: wrap; /* Allow items to wrap to the next line */
+    justify-content: space-between; /* Space between boxes */
+    gap: 10px; /* Space between boxes */
+}
+
+.detail-box {
+    width: 15%;  /* Set each box to 15% of the width to fit 6 boxes per row */
+    padding: 15px;
+    background-color: #e1f5fe;
+    border: 2px solid #81d4fa;
+    border-radius: 10px;
+    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+    box-sizing: border-box; /* Ensure padding doesn't affect width calculation */
+}
+
+.detail-box h3 {
+    margin-top: 0;
+    font-size: 1.2em;
+    color: #0277bd;
+}
+
+#suggestionsList {
+    padding-left: 0;
+    text-align: left;
+}
+
+ul li:hover {
+    background-color: #eee;
+}
+
+#studentDetails pre {
+    background-color: #eef9f7;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    font-family: 'Courier New', Courier, monospace;
+}

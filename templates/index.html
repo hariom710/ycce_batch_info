@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Search</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Search for a Student</h1>
+        <input type="text" id="searchBox" placeholder="Type student name..." onkeyup="searchStudents()">
+        <ul id="suggestionsList"></ul>
+
+        <div id="studentDetails">
+            <h2>Student Details:</h2>
+            <div id="details"></div>
+        </div>
+    </div>
+
+    <script>
+        async function searchStudents() {
+            const query = document.getElementById("searchBox").value;
+            if (query.length > 0) {
+                // Fetch suggestions from the FastAPI search endpoint
+                const response = await fetch(`/search?query=${query}`);
+                const data = await response.json();
+                displaySuggestions(data.suggestions);
+            } else {
+                clearSuggestions();
+            }
+        }
+
+        function displaySuggestions(suggestions) {
+            const suggestionsList = document.getElementById("suggestionsList");
+            suggestionsList.innerHTML = "";  // Clear previous suggestions
+            suggestions.forEach(suggestion => {
+                const li = document.createElement("li");
+                li.textContent = suggestion;
+                li.onclick = () => showStudentDetails(suggestion);
+                suggestionsList.appendChild(li);
+            });
+        }
+
+        async function showStudentDetails(name) {
+            // Fetch student details from the FastAPI details endpoint
+            const response = await fetch(`/details/${name}`);
+            const studentData = await response.json();
+
+            const detailsDiv = document.getElementById("studentDetails");
+            const detailsContainer = document.getElementById("details");
+            
+            // Clear any previous details
+            detailsContainer.innerHTML = '';
+
+            // Loop through each key-value pair and create a box for each field
+            for (let key in studentData) {
+                if (studentData.hasOwnProperty(key)) {
+                    const detailBox = document.createElement("div");
+                    detailBox.className = "detail-box";
+                    detailBox.innerHTML = `<h3>${key}</h3><p>${studentData[key]}</p>`;
+                    detailsContainer.appendChild(detailBox);
+                }
+            }
+
+            detailsDiv.style.display = "block";  // Make the details section visible
+        }
+
+        function clearSuggestions() {
+            const suggestionsList = document.getElementById("suggestionsList");
+            suggestionsList.innerHTML = "";
+        }
+    </script>
+</body>
+</html>
