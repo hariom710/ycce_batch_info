@@ -3,72 +3,300 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Student Search</title>
+    <title>Student Search System</title>
     <link rel="stylesheet" href="/static/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
     <div class="container">
-        <h1>Search for a Student</h1>
-        <input type="text" id="searchBox" placeholder="Type student name..." onkeyup="searchStudents()">
-        <ul id="suggestionsList"></ul>
+        <header class="header">
+            <h1 class="title">Student Search System</h1>
+            <p class="subtitle">Search for student information quickly and efficiently</p>
+        </header>
 
-        <div id="studentDetails">
-            <h2>Student Details:</h2>
-            <div id="details"></div>
+        <div class="search-container">
+            <div class="search-box">
+                <input 
+                    type="text" 
+                    id="searchBox" 
+                    placeholder="Search by student name..." 
+                    autocomplete="off"
+                    class="search-input"
+                >
+                <div class="search-icon">🔍</div>
+            </div>
+            <div id="loadingSpinner" class="loading-spinner hidden">
+                <div class="spinner"></div>
+            </div>
+            <div id="suggestionsContainer" class="suggestions-container hidden">
+                <ul id="suggestionsList" class="suggestions-list"></ul>
+            </div>
+        </div>
+
+        <div id="studentDetails" class="student-details hidden">
+            <div class="details-header">
+                <h2>Student Details</h2>
+                <button id="closeDetails" class="close-btn">×</button>
+            </div>
+            <div id="details" class="details-grid"></div>
+        </div>
+
+        <div id="errorMessage" class="error-message hidden"></div>
+        <div id="noResults" class="no-results hidden">
+            <p>No students found matching your search.</p>
         </div>
     </div>
 
     <script>
-        async function searchStudents() {
-            const query = document.getElementById("searchBox").value;
-            if (query.length > 0) {
-                // Fetch suggestions from the FastAPI search endpoint
-                const response = await fetch(`/search?query=${query}`);
-                const data = await response.json();
-                displaySuggestions(data.suggestions);
-            } else {
+        let debounceTimer;
+        const DEBOUNCE_DELAY = 300;
+
+        // DOM elements
+        const searchBox = document.getElementById("searchBox");
+        const suggestionsContainer = document.getElementById("suggestionsContainer");
+        const suggestionsList = document.getElementById("suggestionsList");
+        const studentDetails = document.getElementById("studentDetails");
+        const detailsContainer = document.getElementById("details");
+        const loadingSpinner = document.getElementById("loadingSpinner");
+        const errorMessage = document.getElementById("errorMessage");
+        const noResults = document.getElementById("noResults");
+        const closeDetails = document.getElementById("closeDetails");
+
+        // Event listeners
+        searchBox.addEventListener("input", handleSearch);
+        closeDetails.addEventListener("click", hideStudentDetails);
+        document.addEventListener("click", handleClickOutside);
+
+        function handleSearch() {
+            const query = searchBox.value.trim();
+            
+            // Clear previous timer
+            clearTimeout(debounceTimer);
+            
+            if (query.length === 0) {
                 clearSuggestions();
+                hideStudentDetails();
+                hideError();
+                hideNoResults();
+                return;
+            }
+            
+            // Show loading spinner
+            showLoading();
+            
+            // Debounce search
+            debounceTimer = setTimeout(() => {
+                searchStudents(query);
+            }, DEBOUNCE_DELAY);
+        }
+
+        async function searchStudents(query) {
+            try {
+                const response = await fetch(`/api/search?query=${encodeURIComponent(query)}`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                hideLoading();
+                
+                if (data.suggestions.length === 0) {
+                    showNoResults();
+                    clearSuggestions();
+                } else {
+                    hideNoResults();
+                    displaySuggestions(data.suggestions);
+                }
+                
+            } catch (error) {
+                hideLoading();
+                showError("Failed to search students. Please try again.");
+                console.error("Search error:", error);
             }
         }
 
         function displaySuggestions(suggestions) {
-            const suggestionsList = document.getElementById("suggestionsList");
-            suggestionsList.innerHTML = "";  // Clear previous suggestions
+            suggestionsList.innerHTML = "";
+            
             suggestions.forEach(suggestion => {
                 const li = document.createElement("li");
-                li.textContent = suggestion;
+                li.className = "suggestion-item";
+                li.innerHTML = `
+                    <div class="suggestion-content">
+                        <span class="suggestion-text">${escapeHtml(suggestion)}</span>
+                        <span class="suggestion-arrow">→</span>
+                    </div>
+                `;
                 li.onclick = () => showStudentDetails(suggestion);
                 suggestionsList.appendChild(li);
             });
+            
+            suggestionsContainer.classList.remove("hidden");
         }
 
         async function showStudentDetails(name) {
-            // Fetch student details from the FastAPI details endpoint
-            const response = await fetch(`/details/${name}`);
-            const studentData = await response.json();
-
-            const detailsDiv = document.getElementById("studentDetails");
-            const detailsContainer = document.getElementById("details");
-            
-            // Clear any previous details
-            detailsContainer.innerHTML = '';
-
-            // Loop through each key-value pair and create a box for each field
-            for (let key in studentData) {
-                if (studentData.hasOwnProperty(key)) {
-                    const detailBox = document.createElement("div");
-                    detailBox.className = "detail-box";
-                    detailBox.innerHTML = `<h3>${key}</h3><p>${studentData[key]}</p>`;
-                    detailsContainer.appendChild(detailBox);
+            try {
+                showLoading();
+                clearSuggestions();
+                
+                const response = await fetch(`/api/student/${encodeURIComponent(name)}`);
+                
+                if (!response.ok) {
+                    if (response.status === 404) {
+                        showError("Student not found");
+                        return;
+                    }
+                    throw new Error(`HTTP error! status: ${response.status}`);
                 }
+                
+                const data = await response.json();
+                hideLoading();
+                displayStudentDetails(data.student_data);
+                
+            } catch (error) {
+                hideLoading();
+                showError("Failed to load student details. Please try again.");
+                console.error("Details error:", error);
             }
+        }
 
-            detailsDiv.style.display = "block";  // Make the details section visible
+        function displayStudentDetails(studentData) {
+            detailsContainer.innerHTML = '';
+            
+            // Define field display order and formatting
+            const fieldOrder = [
+                'Students Full Name', 'College ID', 'Branch', 'Sec', 'Gender', 
+                'DoB', 'YOP SSC', 'SSC %', 'YOP HSSC', 'HSSC %', 
+                'DIPLOMA YOP', 'DIPLOMA %', 'SGPA1', 'SGPA2', 'SGPA3', 
+                'SGPA4', 'SGPA5', 'AVG ', 'STUDENT MOBILE NO.', 
+                'Personal Email ID', 'EMAIL ID'
+            ];
+            
+            fieldOrder.forEach(key => {
+                if (studentData.hasOwnProperty(key) && studentData[key] !== null) {
+                    const detailCard = createDetailCard(key, studentData[key]);
+                    detailsContainer.appendChild(detailCard);
+                }
+            });
+            
+            studentDetails.classList.remove("hidden");
+            studentDetails.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        function createDetailCard(key, value) {
+            const card = document.createElement("div");
+            card.className = "detail-card";
+            
+            const formattedKey = formatFieldName(key);
+            const formattedValue = formatFieldValue(key, value);
+            
+            card.innerHTML = `
+                <div class="detail-header">
+                    <h3 class="detail-title">${formattedKey}</h3>
+                </div>
+                <div class="detail-value">${formattedValue}</div>
+            `;
+            
+            return card;
+        }
+
+        function formatFieldName(key) {
+            // Convert field names to readable format
+            return key
+                .replace(/([A-Z])/g, ' $1')
+                .replace(/_/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+        }
+
+        function formatFieldValue(key, value) {
+            if (value === null || value === undefined) return 'N/A';
+            if (typeof value === 'number') return value.toFixed(2);
+            if (key.includes('Email') || key.includes('ID')) return value.toLowerCase();
+            return value;
+        }
+
+        function hideStudentDetails() {
+            studentDetails.classList.add("hidden");
         }
 
         function clearSuggestions() {
-            const suggestionsList = document.getElementById("suggestionsList");
             suggestionsList.innerHTML = "";
+            suggestionsContainer.classList.add("hidden");
+        }
+
+        function showLoading() {
+            loadingSpinner.classList.remove("hidden");
+        }
+
+        function hideLoading() {
+            loadingSpinner.classList.add("hidden");
+        }
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.classList.remove("hidden");
+            setTimeout(hideError, 5000);
+        }
+
+        function hideError() {
+            errorMessage.classList.add("hidden");
+        }
+
+        function showNoResults() {
+            noResults.classList.remove("hidden");
+        }
+
+        function hideNoResults() {
+            noResults.classList.add("hidden");
+        }
+
+        function handleClickOutside(event) {
+            if (!searchBox.contains(event.target) && !suggestionsContainer.contains(event.target)) {
+                clearSuggestions();
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Keyboard navigation
+        searchBox.addEventListener('keydown', (e) => {
+            const items = suggestionsList.querySelectorAll('.suggestion-item');
+            let currentIndex = Array.from(items).findIndex(item => item.classList.contains('selected'));
+            
+            switch(e.key) {
+                case 'ArrowDown':
+                    e.preventDefault();
+                    currentIndex = Math.min(currentIndex + 1, items.length - 1);
+                    updateSelection(items, currentIndex);
+                    break;
+                case 'ArrowUp':
+                    e.preventDefault();
+                    currentIndex = Math.max(currentIndex - 1, 0);
+                    updateSelection(items, currentIndex);
+                    break;
+                case 'Enter':
+                    e.preventDefault();
+                    if (currentIndex >= 0 && items[currentIndex]) {
+                        items[currentIndex].click();
+                    }
+                    break;
+                case 'Escape':
+                    clearSuggestions();
+                    searchBox.blur();
+                    break;
+            }
+        });
+
+        function updateSelection(items, selectedIndex) {
+            items.forEach((item, index) => {
+                item.classList.toggle('selected', index === selectedIndex);
+            });
         }
     </script>
 </body>

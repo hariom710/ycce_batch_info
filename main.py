@@ -1,59 +1,113 @@
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import HTMLResponse
+import logging
+from fastapi import FastAPI, Request, HTTPException
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from pydantic import BaseModel
-import pandas as pd
-from fastapi import Request
+from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
 
-# uvicorn main:app --reload --port 8080
+from app.core.config import PORT, HOST
+from app.routers import students
+from app.utils.data_loader import student_data
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Manage application lifecycle."""
+    # Startup
+    logger.info("Starting Student Search Application...")
+    
+    if not student_data.is_data_loaded():
+        logger.warning("Student data could not be loaded. The application will run with limited functionality.")
+    
+    yield
+    
+    # Shutdown
+    logger.info("Shutting down Student Search Application...")
 
 # Initialize FastAPI app
-app = FastAPI()
+app = FastAPI(
+    title="Student Search API",
+    description="A FastAPI application for searching student information",
+    version="1.0.0",
+    lifespan=lifespan
+)
 
-# Serve static files (CSS, JS, images)
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # In production, specify your frontend domain
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Include routers
+app.include_router(students.router)
+
+# Serve static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# Load Jinja2 templates for rendering HTML
+# Load Jinja2 templates
 templates = Jinja2Templates(directory="templates")
 
-# Load student data from the Excel file
-excel_file_path = 'students.xlsx'  # Path to your students.xlsx file
-df = pd.read_excel(excel_file_path)
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    """Custom HTTP exception handler."""
+    if request.headers.get("accept") == "application/json":
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"error": exc.detail, "status_code": exc.status_code}
+        )
+    
+    # For HTML requests, you could return a custom error page
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"error": exc.detail}
+    )
 
-# Optionally, clean or preprocess data if needed
-df['Students Full Name'] = df['Students Full Name'].str.lower()  # Standardize case for easy search
-df['DoB'] = pd.to_datetime(df['DoB']).dt.strftime('%Y-%m-%d')  # Format DoB to remove time
-
-class SearchResponse(BaseModel):
-    suggestions: list
+@app.exception_handler(Exception)
+async def general_exception_handler(request: Request, exc: Exception):
+    """General exception handler for unexpected errors."""
+    logger.error(f"Unexpected error: {str(exc)}", exc_info=True)
+    
+    return JSONResponse(
+        status_code=500,
+        content={"error": "Internal server error. Please try again later."}
+    )
 
 @app.get("/", response_class=HTMLResponse)
 async def read_index(request: Request):
-    """
-    Serve the index.html page when visiting the root URL.
-    """
-    return templates.TemplateResponse("index.html", {"request": request})
+    """Serve the main search page."""
+    try:
+        return templates.TemplateResponse("index.html", {"request": request})
+    except Exception as e:
+        logger.error(f"Error rendering template: {e}")
+        raise HTTPException(status_code=500, detail="Unable to load the page")
 
-@app.get("/search")
-async def search_students(query: str):
-    """
-    Endpoint to search students based on the query.
-    """
-    query = query.lower()  # Convert to lowercase for case-insensitive search
-    # Search across all relevant columns
-    suggestions = df[df.apply(lambda row: row.astype(str).str.contains(query).any(), axis=1)]['Students Full Name'].tolist()
-    return {"suggestions": suggestions}
-
-@app.get("/details/{name}")
-async def student_details(name: str):
-    """
-    Endpoint to get the full details of the selected student.
-    """
-    name = name.lower()  # Standardize case
-    student_data = df[df['Students Full Name'].str.lower() == name].iloc[0]  # Get the student by name
-    if student_data.empty:
-        raise HTTPException(status_code=404, detail="Student not found")
+@app.get("/health")
+async def health_check():
+    """Health check endpoint for monitoring."""
+    data_status = "loaded" if student_data.is_data_loaded() else "not loaded"
     
-    # Return student data as a dictionary for easy rendering in frontend
-    return student_data.to_dict()
+    return {
+        "status": "healthy",
+        "data_status": data_status,
+        "version": "1.0.0"
+    }
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(
+        "main:app",
+        host=HOST,
+        port=PORT,
+        reload=True,
+        log_level="info"
+    )
