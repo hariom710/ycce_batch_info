@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 
 from app.core.config import PORT, HOST
 from app.routers import students
-from app.utils.data_loader import student_data
+from app.utils.data_loader import load_data
 
 # Configure logging
 logging.basicConfig(
@@ -23,7 +23,7 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("Starting Student Search Application...")
     
-    if not student_data.is_data_loaded():
+    if load_data().empty:
         logger.warning("Student data could not be loaded. The application will run with limited functionality.")
     
     yield
@@ -94,7 +94,7 @@ async def read_index(request: Request):
 @app.get("/health")
 async def health_check():
     """Health check endpoint for monitoring."""
-    data_status = "loaded" if student_data.is_data_loaded() else "not loaded"
+    data_status = "loaded" if not load_data().empty else "not loaded"
     
     return {
         "status": "healthy",
