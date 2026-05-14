@@ -23,7 +23,7 @@
                     autocomplete="off"
                     class="search-input"
                 >
-                <div class="search-icon">🔍</div>
+                <div class="search-icon">&#128269;</div>
             </div>
             <div id="loadingSpinner" class="loading-spinner hidden">
                 <div class="spinner"></div>
@@ -36,7 +36,7 @@
         <div id="studentDetails" class="student-details hidden">
             <div class="details-header">
                 <h2>Student Details</h2>
-                <button id="closeDetails" class="close-btn">×</button>
+                <button id="closeDetails" class="close-btn">&times;</button>
             </div>
             <div id="details" class="details-grid"></div>
         </div>
@@ -125,7 +125,7 @@
                 li.innerHTML = `
                     <div class="suggestion-content">
                         <span class="suggestion-text">${escapeHtml(suggestion)}</span>
-                        <span class="suggestion-arrow">→</span>
+                        <span class="suggestion-arrow">&rarr;</span>
                     </div>
                 `;
                 li.onclick = () => showStudentDetails(suggestion);
@@ -166,15 +166,15 @@
             
             // Define field display order and formatting
             const fieldOrder = [
-                'Students Full Name', 'College ID', 'Branch', 'Sec', 'Gender', 
+                'Sr.N', 'Students Full Name', 'College ID', 'Branch', 'Sec', 'Gender', 
                 'DoB', 'YOP SSC', 'SSC %', 'YOP HSSC', 'HSSC %', 
                 'DIPLOMA YOP', 'DIPLOMA %', 'SGPA1', 'SGPA2', 'SGPA3', 
                 'SGPA4', 'SGPA5', 'AVG ', 'STUDENT MOBILE NO.', 
-                'Personal Email ID', 'EMAIL ID'
+                'Personal Email ID', 'EMAIL ID', 'Company', 'Domain'
             ];
             
             fieldOrder.forEach(key => {
-                if (studentData.hasOwnProperty(key) && studentData[key] !== null) {
+                if (studentData.hasOwnProperty(key) && hasDisplayValue(studentData[key])) {
                     const detailCard = createDetailCard(key, studentData[key]);
                     detailsContainer.appendChild(detailCard);
                 }
@@ -193,28 +193,62 @@
             
             card.innerHTML = `
                 <div class="detail-header">
-                    <h3 class="detail-title">${formattedKey}</h3>
+                    <h3 class="detail-title">${escapeHtml(formattedKey)}</h3>
                 </div>
-                <div class="detail-value">${formattedValue}</div>
+                <div class="detail-value">${escapeHtml(formattedValue)}</div>
             `;
             
             return card;
         }
 
         function formatFieldName(key) {
-            // Convert field names to readable format
-            return key
-                .replace(/([A-Z])/g, ' $1')
-                .replace(/_/g, ' ')
-                .replace(/\s+/g, ' ')
-                .trim();
+            const fieldLabels = {
+                'Sr.N': 'Sr. No.',
+                'Students Full Name': 'Student Full Name',
+                'College ID': 'College ID',
+                'Branch': 'Branch',
+                'Sec': 'Section',
+                'Gender': 'Gender',
+                'DoB': 'Date of Birth',
+                'YOP SSC': 'YOP SSC',
+                'SSC %': 'SSC %',
+                'YOP HSSC': 'YOP HSSC',
+                'HSSC %': 'HSSC %',
+                'DIPLOMA YOP': 'Diploma YOP',
+                'DIPLOMA %': 'Diploma %',
+                'SGPA1': 'SGPA 1',
+                'SGPA2': 'SGPA 2',
+                'SGPA3': 'SGPA 3',
+                'SGPA4': 'SGPA 4',
+                'SGPA5': 'SGPA 5',
+                'AVG ': 'Average',
+                'STUDENT MOBILE NO.': 'Student Mobile No.',
+                'Personal Email ID': 'Personal Email ID',
+                'EMAIL ID': 'College Email ID',
+                'Company': 'Company',
+                'Domain': 'Domain'
+            };
+
+            return fieldLabels[key] || key.trim();
         }
 
         function formatFieldValue(key, value) {
             if (value === null || value === undefined) return 'N/A';
-            if (typeof value === 'number') return value.toFixed(2);
-            if (key.includes('Email') || key.includes('ID')) return value.toLowerCase();
-            return value;
+            if (typeof value === 'number') {
+                if (['Sr.N', 'College ID', 'YOP SSC', 'YOP HSSC', 'DIPLOMA YOP', 'STUDENT MOBILE NO.'].includes(key)) {
+                    return String(Math.trunc(value));
+                }
+
+                return value.toFixed(2);
+            }
+            if (key.includes('Email') || key === 'EMAIL ID') return String(value).toLowerCase();
+            return String(value);
+        }
+
+        function hasDisplayValue(value) {
+            if (value === null || value === undefined) return false;
+            if (typeof value === 'number') return !Number.isNaN(value);
+            return String(value).trim() !== '' && String(value).toLowerCase() !== 'nan';
         }
 
         function hideStudentDetails() {

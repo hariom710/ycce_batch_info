@@ -1,8 +1,7 @@
 import pandas as pd
 import logging
-from pathlib import Path
 from typing import Optional
-from app.core.config import EXCEL_FILE_PATH
+from app.core.config import EXCEL_FILE_PATH, GOOGLE_SHEET_EXPORT_URL
 
 logger = logging.getLogger(__name__)
 
@@ -12,14 +11,9 @@ class StudentDataManager:
         self._load_data()
     
     def _load_data(self) -> None:
-        """Load and preprocess student data from Excel file."""
+        """Load and preprocess student data from Google Sheets or local Excel file."""
         try:
-            if not EXCEL_FILE_PATH.exists():
-                logger.error(f"Excel file not found: {EXCEL_FILE_PATH}")
-                self.df = pd.DataFrame()
-                return
-            
-            self.df = pd.read_excel(EXCEL_FILE_PATH)
+            self.df = self._read_student_data()
             
             # Preprocess data
             self.df['Students Full Name'] = self.df['Students Full Name'].str.lower().str.strip()
@@ -36,6 +30,21 @@ class StudentDataManager:
         except Exception as e:
             logger.error(f"Error loading student data: {e}")
             self.df = pd.DataFrame()
+
+    def _read_student_data(self) -> pd.DataFrame:
+        """Read student records from the configured Google Sheet, then local fallback."""
+        try:
+            logger.info("Loading student data from Google Sheet...")
+            return pd.read_excel(GOOGLE_SHEET_EXPORT_URL, sheet_name=0)
+        except Exception as e:
+            logger.warning(f"Could not load Google Sheet data: {e}")
+
+        if not EXCEL_FILE_PATH.exists():
+            logger.error(f"Excel file not found: {EXCEL_FILE_PATH}")
+            return pd.DataFrame()
+
+        logger.info(f"Loading student data from local file: {EXCEL_FILE_PATH}")
+        return pd.read_excel(EXCEL_FILE_PATH)
     
     def search_students(self, query: str, limit: int = 10) -> list[str]:
         """Search students by name with optimized filtering."""
@@ -61,8 +70,21 @@ class StudentDataManager:
         if student_rows.empty:
             return None
         
-        # Return the first match as dictionary
-        return student_rows.iloc[0].to_dict()
+        student = student_rows.iloc[0].to_dict()
+        student.pop('search_text', None)
+
+        return {
+            key: self._clean_value(value)
+            for key, value in student.items()
+        }
+
+    def _clean_value(self, value):
+        """Convert spreadsheet empty values into JSON-safe values."""
+        if pd.isna(value):
+            return None
+        if isinstance(value, str):
+            return value.strip()
+        return value
     
     def is_data_loaded(self) -> bool:
         """Check if data is successfully loaded."""
