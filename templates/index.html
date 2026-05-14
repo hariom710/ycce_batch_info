@@ -174,7 +174,7 @@
             ];
             
             fieldOrder.forEach(key => {
-                if (studentData.hasOwnProperty(key) && hasDisplayValue(studentData[key])) {
+                if (studentData.hasOwnProperty(key)) {
                     const detailCard = createDetailCard(key, studentData[key]);
                     detailsContainer.appendChild(detailCard);
                 }
@@ -233,7 +233,7 @@
         }
 
         function formatFieldValue(key, value) {
-            if (value === null || value === undefined) return 'N/A';
+            if (value === null || value === undefined) return '';
             if (typeof value === 'number') {
                 if (['Sr.N', 'College ID', 'YOP SSC', 'YOP HSSC', 'DIPLOMA YOP', 'STUDENT MOBILE NO.'].includes(key)) {
                     return String(Math.trunc(value));
@@ -243,12 +243,6 @@
             }
             if (key.includes('Email') || key === 'EMAIL ID') return String(value).toLowerCase();
             return String(value);
-        }
-
-        function hasDisplayValue(value) {
-            if (value === null || value === undefined) return false;
-            if (typeof value === 'number') return !Number.isNaN(value);
-            return String(value).trim() !== '' && String(value).toLowerCase() !== 'nan';
         }
 
         function hideStudentDetails() {
